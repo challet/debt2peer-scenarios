@@ -1,0 +1,23 @@
+{
+  "extends": "@tsconfig/node20/tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "nodenext",
+    "resolveJsonModule": true,
+    "removeComments": true,
+    "outDir": "../dist",
+    "sourceMap": true,
+    "types": ["node", "jest"],
+    "strict": false,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": [
+    "./**/*",
+    "./**/*.json"
+  ],
+  "exclude": [
+    "tsconfig.json",
+    "tsconfig-build.json"
+  ]
+}
