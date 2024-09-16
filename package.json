@@ -10,7 +10,7 @@
   "license": "SEE LICENSE IN <../LICENSE>",
   "description": "",
   "dependencies": {
-    "@stellar/stellar-sdk": "^12.1.0"
+    "@stellar/stellar-sdk": "^12.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.24.7",
