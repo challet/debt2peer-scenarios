@@ -3,7 +3,6 @@ import { describe, expect, it } from '@jest/globals';
 
 import { buildTransaction, findBalance, horizon, rpcserver, BalanceLineAsset, User, OfferRecord } from './utils.ts';
 
-
 const ASSET_CODE = 'IOU000000USD';
 const NO_CROSS_EXPECTATION = expect.objectContaining({
   isFullyOpen: true,
@@ -49,6 +48,10 @@ beforeAll(async() => {
   }));
 });
 
+afterAll(() => {
+  console.info(`Live test scenarios transactions available on the Testnet at:\nhttps://stellar.expert/explorer/testnet/account/${users.David.account.accountId()}`);
+});
+
 describe('Giving credit & issuing debt', () => {
   it('Alice creates a trustline on Bob\'s IOU', async () => {
     const trx = buildTransaction([
@@ -57,7 +60,7 @@ describe('Giving credit & issuing debt', () => {
         asset: users.Bob.iou,
         limit: '1000'
       })
-    ], [users.Alice]);
+    ], [users.David, users.Alice]);
     await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
 
     const balance = await findBalance(users.Alice, users.Bob.iou);
@@ -73,7 +76,7 @@ describe('Giving credit & issuing debt', () => {
         destination: users.Alice.account.accountId(),
         amount: '500'
       })
-    ], [users.Bob]);
+    ], [users.David, users.Bob]);
     await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
 
     expect(await findBalance(users.Alice, users.Bob.iou)).toBe(500);
@@ -110,7 +113,7 @@ describe('Debt settlements', () => {
         destination: users.Bob.account.accountId(),
         amount: '100'
       })
-    ], [users.Alice]);
+    ], [users.David, users.Alice]);
     await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
 
     expect(await findBalance(users.Alice, users.Bob.iou)).toBe(400); // 500 - 100
@@ -177,7 +180,7 @@ describe('Debt settlements', () => {
         destination: users.Bob.account.accountId(),
         amount: '100'
       })
-    ], [users.Alice]);
+    ], [users.David, users.Alice]);
     await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
 
     expect(await findBalance(users.Alice, users.Bob.iou)).toBe(0); // 100 - 100
@@ -292,7 +295,7 @@ describe('Debt settlements', () => {
           destination: users.Bob.account.accountId(),
           amount: '100'
         })
-      ], [users.Alice]);
+      ], [users.David, users.Alice]);
       const res = await horizon.submitTransaction(trx_pay, { skipMemoRequiredCheck: true });
 
       const balances = await Promise.all([
@@ -348,7 +351,7 @@ describe('Debt settlements', () => {
         destAmount: '100',
         path: [users.Bob.iou]
       })
-    ], [users.Alice]);
+    ], [users.David, users.Alice]);
 
     try {
       await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
@@ -403,7 +406,7 @@ describe('Debt settlements', () => {
         destAmount: '100',
         path: []
       })
-    ], [users.Alice]);
+    ], [users.David, users.Alice]);
     const res = await horizon.submitTransaction(trx_pay, { skipMemoRequiredCheck: true });
 
     const [balance_a, balance_s] = await Promise.all([
@@ -423,7 +426,7 @@ describe('Trustless transfers', () => {
         asset: users.Carol.iou,
         limit: '1000'
       })
-    ], [users.Matilda]);
+    ], [users.David, users.Matilda]);
     await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
 
     const balance = await findBalance(users.Matilda, users.Carol.iou);
@@ -529,7 +532,7 @@ describe('Trustless transfers', () => {
         destMin: '100',
         path: [users.Bob.iou]
       })
-    ], [users.Alice]);
+    ], [users.David, users.Alice]);
     await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
 
     const balances = await Promise.all([
@@ -692,7 +695,7 @@ describe('Trustless transfers', () => {
           destMin: '100',
           path: [users.Bob.iou]
         })
-      ], [users.Alice]);
+      ], [users.David, users.Alice]);
       await horizon.submitTransaction(payment_trx, { skipMemoRequiredCheck: true });
   
       const balances = await Promise.all([
