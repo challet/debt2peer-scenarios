@@ -1,4 +1,4 @@
-import { Asset, Horizon, Keypair, Memo, MemoText, Operation } from '@stellar/stellar-sdk';
+import { Asset, BASE_FEE, Horizon, Keypair, Memo, MemoText, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
 import { describe, expect, it } from '@jest/globals';
 
 import { buildTransaction, findBalance, horizon, rpcserver, BalanceLineAsset, User, OfferRecord } from './utils.ts';
@@ -49,7 +49,7 @@ beforeAll(async() => {
   }));
 });
 
-describe('Credit and debt management', () => {
+describe('Giving credit & issuing debt', () => {
   it('Alice creates a trustline on Bob\'s IOU', async () => {
     const trx = buildTransaction([
       Operation.changeTrust({
@@ -79,7 +79,7 @@ describe('Credit and debt management', () => {
     expect(await findBalance(users.Alice, users.Bob.iou)).toBe(500);
   });
 
-  it('Bob creates a reverse trustline and Alice issues 300 IOU on it', async () => {
+  it('Bob creates a reciprocal trustline and Alice issues 300 IOU on it', async () => {
     const trx = buildTransaction([
         Operation.changeTrust({
           source: users.Bob.account.accountId(),
@@ -101,7 +101,7 @@ describe('Credit and debt management', () => {
   });
 });
 
-describe('Settlements', () => {
+describe('Debt settlements', () => {
   it('Alice sends back 100 Bob\'s IOU to Bob', async () => {
     const trx = buildTransaction([
       Operation.payment({ 
@@ -415,7 +415,7 @@ describe('Settlements', () => {
   });
 });
 
-describe('Liquidity provision and payment without a direct trustline', () => {
+describe('Trustless transfers', () => {
   it('Matilda joins and trusts Carol\'s IOU', async() => {
     const trx = buildTransaction([
       Operation.changeTrust({
@@ -430,26 +430,29 @@ describe('Liquidity provision and payment without a direct trustline', () => {
     expect(balance).not.toBeUndefined();
   });
 
-  describe('Liquidity provision intents can be registered then fetched on-chain', () => {
+  describe('Provision intent can be registered then fetched on-chain', () => {
     it('Bob registers intent to provide liquidity for Alice', async () => {
-      const trx = buildTransaction([
-          Operation.changeTrust({
-            source: users.Bob.account.accountId(),
-            asset: users.Alice.iou,
-            limit: '1000'
-          }),
-          // so we can test the paging loop in the next test
-          Operation.manageData({
-            source: users.Bob.account.accountId(),
-            name: 'data',
-            value: 'entry'
-          })
-        ],
-        [users.David, users.Bob],
-        new Memo(MemoText, "PI:500")
-      );
-      const result = await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
+      // Don't use the "buildTransaction" snippet to explictely show the memo being added
+      const builder = new TransactionBuilder(users.David.account, { fee: BASE_FEE, networkPassphrase: Networks.TESTNET });
+      builder.setTimeout(30);
+      builder.addOperation(Operation.changeTrust({
+        source: users.Bob.account.accountId(),
+        asset: users.Alice.iou,
+        limit: '1000'
+      }));
+      // Mockup operation so we can test the paging loop in the next test
+      builder.addOperation(Operation.manageData({
+        source: users.Bob.account.accountId(),
+        name: 'data',
+        value: 'entry'
+      }));
+      builder.addMemo(new Memo(MemoText, "PI:500"));
+      
+      const trx = builder.build();
+      trx.sign(users.David.keypair);
+      trx.sign(users.Bob.keypair);
 
+      const result = await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
       expect((result as any).memo).toBe("PI:500");
     });
 
@@ -462,7 +465,11 @@ describe('Liquidity provision and payment without a direct trustline', () => {
         .call();
       do {
         const operations = await fetch_tx;
-        op_lookup = operations.records.find(op => op.type == 'change_trust');
+        op_lookup = operations.records.find(op => (
+          op.type == 'change_trust'
+            && op.asset_code == users.Alice.iou.getCode()
+            && op.asset_issuer == users.Alice.iou.getIssuer()
+        ));
 
         if (!op_lookup) {
           fetch_tx = operations.records.length == 0 ? null : operations.next();
@@ -511,7 +518,7 @@ describe('Liquidity provision and payment without a direct trustline', () => {
     }));
   });
 
-  it('Alice sends 100 IOU to Matilda without a direct trust and through the provided liquidity', async() => {
+  it('Alice sends 100\'s Carol IOU to Matilda without a direct trust and through the provided liquidity', async() => {
     const trx = buildTransaction([
       Operation.pathPaymentStrictSend({
         source: users.Alice.account.accountId(),
@@ -700,6 +707,5 @@ describe('Liquidity provision and payment without a direct trustline', () => {
     });
 
   });
-
 
 });
