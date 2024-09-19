@@ -16,8 +16,8 @@ const NO_CROSS_EXPECTATION = expect.objectContaining({
 
 // David would be the operator funding the transactions, and not taking part in them
 // Alice and Bob would be our regular users
-// Susie would be a third party making trustlines path between our primary users
-// Matilda would be a merchant outside the {Alice, Bob, Susie } cluster only trusting Susie
+// Carol would be a third party making trustlines path between our primary users
+// Matilda would be a merchant outside the {Alice, Bob, Carol} cluster only trusting Carol
 var users: Record<string, User> = {};
 
 beforeAll(async() => {
@@ -31,7 +31,7 @@ beforeAll(async() => {
   };
 
   // Create our other users accounts
-  const names = ['Alice', 'Bob', 'Susie', 'Matilda'];
+  const names = ['Alice', 'Bob', 'Carol', 'Matilda'];
   const trx = buildTransaction(names.map((name) => {
     users[name] = { keypair: Keypair.random() };
     return Operation.createAccount({
@@ -183,41 +183,41 @@ describe('Settlements', () => {
     expect(await findBalance(users.Alice, users.Bob.iou)).toBe(0); // 100 - 100
   });
 
-  it('Susie joins Alice and Bob, they all trust each other ', async() => {
+  it('Carol joins Alice and Bob, they all trust each other ', async() => {
     const trx = buildTransaction([
       Operation.changeTrust({
         source: users.Alice.account.accountId(),
-        asset: users.Susie.iou,
+        asset: users.Carol.iou,
         limit: '1000'
       }),
       Operation.changeTrust({
-        source: users.Susie.account.accountId(),
+        source: users.Carol.account.accountId(),
         asset: users.Alice.iou,
         limit: '1000'
       }),
       Operation.changeTrust({
-        source: users.Susie.account.accountId(),
+        source: users.Carol.account.accountId(),
         asset: users.Bob.iou,
         limit: '1000'
       }),
       Operation.changeTrust({
         source: users.Bob.account.accountId(),
-        asset: users.Susie.iou,
+        asset: users.Carol.iou,
         limit: '1000'
       }),
-    ], [users.David, users.Bob, users.Alice, users.Susie]);
+    ], [users.David, users.Bob, users.Alice, users.Carol]);
     const result = await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
 
     const balances = await Promise.all([
-      findBalance(users.Alice, users.Susie.iou),
-      findBalance(users.Susie, users.Alice.iou),
-      findBalance(users.Bob, users.Susie.iou),
-      findBalance(users.Susie, users.Bob.iou),
+      findBalance(users.Alice, users.Carol.iou),
+      findBalance(users.Carol, users.Alice.iou),
+      findBalance(users.Bob, users.Carol.iou),
+      findBalance(users.Carol, users.Bob.iou),
     ]);
     expect(balances).toEqual([0, 0, 0, 0]);
   });
 
-  it('Alice issues 100 to Bob, Bob 200 to Susie, Susie 300 to Alice. Each recipient creates an order to sell them back (and buyback their own-issued IOU)', async () => {
+  it('Alice issues 100 to Bob, Bob 200 to Carol, Carol 300 to Alice. Each recipient creates an order to sell them back (and buyback their own-issued IOU)', async () => {
     const trx = buildTransaction([
       Operation.payment({
         source: users.Alice.account.accountId(),
@@ -235,45 +235,45 @@ describe('Settlements', () => {
       Operation.payment({
         source: users.Bob.account.accountId(),
         asset: users.Bob.iou,
-        destination: users.Susie.account.accountId(),
+        destination: users.Carol.account.accountId(),
         amount: '200'
       }),
       Operation.manageSellOffer({
-        source: users.Susie.account.accountId(),
-        buying: users.Susie.iou,
+        source: users.Carol.account.accountId(),
+        buying: users.Carol.iou,
         selling: users.Bob.iou,
         price: 1,
         amount: '200'
       }),
       Operation.payment({
-        source: users.Susie.account.accountId(),
-        asset: users.Susie.iou,
+        source: users.Carol.account.accountId(),
+        asset: users.Carol.iou,
         destination: users.Alice.account.accountId(),
         amount: '300'
       }),
       Operation.manageSellOffer({
         source: users.Alice.account.accountId(),
         buying: users.Alice.iou,
-        selling: users.Susie.iou,
+        selling: users.Carol.iou,
         price: 1,
         amount: '300'
       })
-    ], [users.David, users.Bob, users.Alice, users.Susie]);
+    ], [users.David, users.Bob, users.Alice, users.Carol]);
     const result = await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
 
     const balances = await Promise.all([
       findBalance(users.Bob, users.Alice.iou),
-      findBalance(users.Susie, users.Bob.iou),
-      findBalance(users.Alice, users.Susie.iou)
+      findBalance(users.Carol, users.Bob.iou),
+      findBalance(users.Alice, users.Carol.iou)
     ]);
     expect(balances).toEqual([100, 200, 300]);
   });
 
-  it('Alice sends 100 Susie\'s IOU to Bob', async () => {
-    // find the current Alice's offer to sell Susie's IOU
+  it('Alice sends 100 Carol\'s IOU to Bob', async () => {
+    // find the current Alice's offer to sell Carol's IOU
     const offers = await horizon.offers()
       .forAccount(users.Alice.account.accountId())
-      .selling(users.Susie.iou)
+      .selling(users.Carol.iou)
       .call();
 
       const trx_pay = buildTransaction([
@@ -281,14 +281,14 @@ describe('Settlements', () => {
         Operation.manageSellOffer({
           source: users.Alice.account.accountId(),
           buying: users.Alice.iou,
-          selling: users.Susie.iou,
+          selling: users.Carol.iou,
           price: 1,
           amount: '200',
           offerId: offers.records[0].id
         }),
         Operation.payment({
           source: users.Alice.account.accountId(),
-          asset: users.Susie.iou,
+          asset: users.Carol.iou,
           destination: users.Bob.account.accountId(),
           amount: '100'
         })
@@ -296,37 +296,37 @@ describe('Settlements', () => {
       const res = await horizon.submitTransaction(trx_pay, { skipMemoRequiredCheck: true });
 
       const balances = await Promise.all([
-        findBalance(users.Alice, users.Susie.iou),
-        findBalance(users.Bob, users.Susie.iou)
+        findBalance(users.Alice, users.Carol.iou),
+        findBalance(users.Bob, users.Carol.iou)
       ]);
       expect(balances).toEqual([200, 100]);
   });
 
-  it('Alice compensates 100 IOU through a cyclic path (Alice -> Susie -> Bob -> Alice)', async () => {
+  it('Alice compensates 100 IOU through a cyclic path (Alice -> Carol -> Bob -> Alice)', async () => {
     await new Promise((resolve) => setTimeout(resolve, 2000)); // There is a small delay before the paths become available to fetch on Horizon
-    const paths = await horizon.strictReceivePaths([users.Susie.iou], users.Alice.iou, '100').call();
+    const paths = await horizon.strictReceivePaths([users.Carol.iou], users.Alice.iou, '100').call();
     const path = paths.records[0];
 
     expect(path).toEqual(expect.objectContaining({
-      // Alice sends Susie's IOU`
-      source_asset_code: users.Susie.iou.getCode(),
-      source_asset_issuer: users.Susie.iou.getIssuer(),
+      // Alice sends Carol's IOU`
+      source_asset_code: users.Carol.iou.getCode(),
+      source_asset_issuer: users.Carol.iou.getIssuer(),
       // Alice recevied Alice's IOU
       destination_asset_code: users.Alice.iou.getCode(),
       destination_asset_issuer: users.Alice.iou.getIssuer(),
       source_amount: '100.0000000',
       destination_amount: '100.0000000',
-      // Susie's IOU is exchanged for Bob's IOU, which is exchanged for Alice's IOU
+      // Carol's IOU is exchanged for Bob's IOU, which is exchanged for Alice's IOU
       path: expect.arrayContaining([expect.objectContaining({
         asset_code: users.Bob.iou.getCode(),
         asset_issuer: users.Bob.iou.getIssuer()
       })])
     }));
 
-    // find the current Alice's offer to sell Susie's IOU
+    // find the current Alice's offer to sell Carol's IOU
     const offers = await horizon.offers()
       .forAccount(users.Alice.account.accountId())
-      .selling(users.Susie.iou)
+      .selling(users.Carol.iou)
       .call();
 
     const trx = buildTransaction([
@@ -334,14 +334,14 @@ describe('Settlements', () => {
       Operation.manageSellOffer({
         source: users.Alice.account.accountId(),
         buying: users.Alice.iou,
-        selling: users.Susie.iou,
+        selling: users.Carol.iou,
         price: 1,
         amount: '100',
         offerId: offers.records[0].id
       }),
       Operation.pathPaymentStrictReceive({
         source: users.Alice.account.accountId(),
-        sendAsset: users.Susie.iou,
+        sendAsset: users.Carol.iou,
         sendMax: '100',
         destination: users.Alice.account.accountId(),
         destAsset: users.Alice.iou,
@@ -357,20 +357,20 @@ describe('Settlements', () => {
     }
     const balances = await Promise.all([
       findBalance(users.Bob, users.Alice.iou),
-      findBalance(users.Susie, users.Bob.iou),
-      findBalance(users.Alice, users.Susie.iou)
+      findBalance(users.Carol, users.Bob.iou),
+      findBalance(users.Alice, users.Carol.iou)
     ]);
     expect(balances).toEqual([0, 100, 100]); // they all have 100 IOU less
   });
 
-  it('Alice sends 100 IOU to Bob\'s through a PathPayment including Susie', async () => {
+  it('Alice sends 100 IOU to Bob\'s through a PathPayment including Carol', async () => {
     await new Promise((resolve) => setTimeout(resolve, 2000)); // There is a small delay before the paths become available to fetch on Horizon
     const paths = await horizon.strictReceivePaths(users.Alice.account.accountId(), users.Bob.iou, '100').call();
     const path = paths.records.filter((path) => path.source_asset_issuer !== path.destination_asset_issuer)[0];
 
     expect(path).toEqual(expect.objectContaining({
-      source_asset_code: users.Susie.iou.getCode(),
-      source_asset_issuer: users.Susie.iou.getIssuer(),
+      source_asset_code: users.Carol.iou.getCode(),
+      source_asset_issuer: users.Carol.iou.getIssuer(),
       destination_asset_code: users.Bob.iou.getCode(),
       destination_asset_issuer: users.Bob.iou.getIssuer(),
       source_amount: '100.0000000',
@@ -378,10 +378,10 @@ describe('Settlements', () => {
       path: expect.not.arrayContaining([expect.anything()])
     }));
     
-    // find the current Alice's offer to sell Susie's IOU
+    // find the current Alice's offer to sell Carol's IOU
     const offers = await horizon.offers()
       .forAccount(users.Alice.account.accountId())
-      .selling(users.Susie.iou)
+      .selling(users.Carol.iou)
       .call();
   
     const trx_pay = buildTransaction([
@@ -389,14 +389,14 @@ describe('Settlements', () => {
       Operation.manageSellOffer({
         source: users.Alice.account.accountId(),
         buying: users.Alice.iou,
-        selling: users.Susie.iou,
+        selling: users.Carol.iou,
         price: 1,
         amount: '0',
         offerId: offers.records[0].id
       }),
       Operation.pathPaymentStrictReceive({
         source: users.Alice.account.accountId(),
-        sendAsset: users.Susie.iou,
+        sendAsset: users.Carol.iou,
         sendMax: '100',
         destination: users.Bob.account.accountId(),
         destAsset: users.Bob.iou,
@@ -407,26 +407,26 @@ describe('Settlements', () => {
     const res = await horizon.submitTransaction(trx_pay, { skipMemoRequiredCheck: true });
 
     const [balance_a, balance_s] = await Promise.all([
-      findBalance(users.Alice, users.Susie.iou),
-      findBalance(users.Susie, users.Bob.iou)
+      findBalance(users.Alice, users.Carol.iou),
+      findBalance(users.Carol, users.Bob.iou)
     ]);
-    expect(balance_a).toBe(0); // Alice has been paying by decreasing Susie's IOU she owns
-    expect(balance_s).toBe(0); // Bob has been paid by having its IOU previously owned by Susie sent back to him
+    expect(balance_a).toBe(0); // Alice has been paying by decreasing Carol's IOU she owns
+    expect(balance_s).toBe(0); // Bob has been paid by having its IOU previously owned by Carol sent back to him
   });
 });
 
 describe('Liquidity provision and payment without a direct trustline', () => {
-  it('Matilda joins and trusts Susie\'s IOU', async() => {
+  it('Matilda joins and trusts Carol\'s IOU', async() => {
     const trx = buildTransaction([
       Operation.changeTrust({
         source: users.Matilda.account.accountId(),
-        asset: users.Susie.iou,
+        asset: users.Carol.iou,
         limit: '1000'
       })
     ], [users.Matilda]);
     await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
 
-    const balance = await findBalance(users.Matilda, users.Susie.iou);
+    const balance = await findBalance(users.Matilda, users.Carol.iou);
     expect(balance).not.toBeUndefined();
   });
 
@@ -473,7 +473,7 @@ describe('Liquidity provision and payment without a direct trustline', () => {
     });
   });
 
-  it('Bob provides liquidity to Alice and Susie to Bob', async() => {
+  it('Bob provides liquidity to Alice and Carol to Bob', async() => {
     const trx = buildTransaction([
       Operation.createPassiveSellOffer({
         source: users.Bob.account.accountId(),
@@ -483,13 +483,13 @@ describe('Liquidity provision and payment without a direct trustline', () => {
         price: 1
       }),
       Operation.createPassiveSellOffer({
-        source: users.Susie.account.accountId(),
+        source: users.Carol.account.accountId(),
         buying: users.Bob.iou,
-        selling: users.Susie.iou,
+        selling: users.Carol.iou,
         amount: '200',
         price: 1
       })
-    ], [users.David, users.Bob, users.Susie]);
+    ], [users.David, users.Bob, users.Carol]);
     const result = await horizon.submitTransaction(trx, { skipMemoRequiredCheck: true });
 
     await new Promise((resolve) => setTimeout(resolve, 2000)); // There is a small delay before the paths become available to fetch on Horizon
@@ -498,8 +498,8 @@ describe('Liquidity provision and payment without a direct trustline', () => {
     expect(paths.records).toContainEqual(expect.objectContaining({
       source_asset_code: users.Alice.iou.getCode(),
       source_asset_issuer: users.Alice.iou.getIssuer(),
-      destination_asset_code: users.Susie.iou.getCode(),
-      destination_asset_issuer: users.Susie.iou.getIssuer(),
+      destination_asset_code: users.Carol.iou.getCode(),
+      destination_asset_issuer: users.Carol.iou.getIssuer(),
       source_amount: '100.0000000',
       destination_amount: '100.0000000',
       path: expect.arrayContaining([
@@ -518,7 +518,7 @@ describe('Liquidity provision and payment without a direct trustline', () => {
         sendAsset: users.Alice.iou,
         sendAmount: '100',
         destination: users.Matilda.account.accountId(),
-        destAsset: users.Susie.iou,
+        destAsset: users.Carol.iou,
         destMin: '100',
         path: [users.Bob.iou]
       })
@@ -527,8 +527,8 @@ describe('Liquidity provision and payment without a direct trustline', () => {
 
     const balances = await Promise.all([
       findBalance(users.Bob, users.Alice.iou),
-      findBalance(users.Susie, users.Bob.iou),
-      findBalance(users.Matilda, users.Susie.iou)
+      findBalance(users.Carol, users.Bob.iou),
+      findBalance(users.Matilda, users.Carol.iou)
     ]);
     expect(balances[0]).toBe(100);
     expect(balances[1]).toBe(100);
@@ -681,7 +681,7 @@ describe('Liquidity provision and payment without a direct trustline', () => {
           sendAsset: users.Alice.iou,
           sendAmount: '100',
           destination: users.Matilda.account.accountId(),
-          destAsset: users.Susie.iou,
+          destAsset: users.Carol.iou,
           destMin: '100',
           path: [users.Bob.iou]
         })
@@ -690,8 +690,8 @@ describe('Liquidity provision and payment without a direct trustline', () => {
   
       const balances = await Promise.all([
         findBalance(users.Bob, users.Alice.iou),
-        findBalance(users.Susie, users.Bob.iou),
-        findBalance(users.Matilda, users.Susie.iou)
+        findBalance(users.Carol, users.Bob.iou),
+        findBalance(users.Matilda, users.Carol.iou)
       ]);
       // Each have 100 from "Alice sends 100 IOU to Matilda without a direct trust and through the provided liquidity"
       expect(balances[0]).toBe(300); // + 100 from "Alice issues 100 IOU to Bob" + 100 from the above PathPayment
